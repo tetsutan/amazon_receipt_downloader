@@ -9,7 +9,7 @@ npm install
 # Usage
 
 ```
-node .index.js
+node index.js
 ```
 
 初回実行時にはbot検知を回避してcookieを取得するため、普通のブラウザが立ち上がります。
