@@ -3,7 +3,7 @@ const fs = require('fs');
 const exec = require('child_process').exec;
 
 const puppeteer = require('puppeteer');
-const year = '2018'
+const year = '2020'
 const url = 'https://www.amazon.co.jp/gp/your-account/order-history?opt=ab&digitalOrders=1&unifiedOrders=1&orderFilter=year-' + year;
 
 const cookie_path = './cookie.txt';
