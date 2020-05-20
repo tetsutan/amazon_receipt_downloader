@@ -9,6 +9,7 @@ npm install
 # Usage
 
 ```
+# first open real brower, then enter email and password to retrieve cookies. and re-run
 node index.js
 ```
 
