@@ -3,7 +3,17 @@ const fs = require('fs');
 const exec = require('child_process').exec;
 
 const puppeteer = require('puppeteer');
-const year = '2020'
+
+let year = '2020';
+if(process.argv.length > 2) {
+  year = process.argv[2];
+}
+
+if(! /^[0-9]+$/.test(year)) {
+  console.log("argument error")
+  return
+}
+
 const url = 'https://www.amazon.co.jp/gp/your-account/order-history?opt=ab&digitalOrders=1&unifiedOrders=1&orderFilter=year-' + year;
 
 const cookie_path = './cookie.txt';
@@ -89,7 +99,7 @@ function log(message) {
       log("error " + invoice_index + ".pdf")
     })
     await page.waitForTimeout(500)
-    await page.pdf({path: 'invoice-'+invoice_index+'.pdf' , format: 'A4'});
+    await page.pdf({path: 'invoice-' + year + '-' + invoice_index+'.pdf' , format: 'A4'});
 
     invoice_index++
     if(invoice_index % 10 == 0) {

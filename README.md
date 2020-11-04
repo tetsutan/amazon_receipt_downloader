@@ -9,8 +9,8 @@ npm install
 # Usage
 
 ```
-# first open real brower, then enter email and password to retrieve cookies. and re-run
-node index.js
+# first, open real brower, then enter email and password to retrieve cookies. and re-run
+node index.js 2021
 ```
 
 - 初回実行時にはbot検知を回避してcookieを取得するため、普通のブラウザが立ち上がります。
