@@ -9,6 +9,10 @@ const url = 'https://www.amazon.co.jp/gp/your-account/order-history?opt=ab&digit
 const cookie_path = './cookie.txt';
 
 
+function log(message) {
+  console.log("[" + new Date().toLocaleString() + "] "+ message)
+}
+
 (async function(){
 
   // cookie
@@ -26,12 +30,14 @@ const cookie_path = './cookie.txt';
     await _page.goto(url);
 
     while(_page.url().match(/^https:\/\/www\.amazon\.co\.jp\/ap\/signin/) || _page.url().match(/^https:\/\/www\.amazon\.co\.jp\/ap\/mfa/)){
-      await _page.waitFor(3000);
+      await _page.waitForTimeout(500);
     }
+
+    await _page.waitForSelector("#yourOrders");
 
     let cookies = await _page.cookies();
     fs.writeFileSync(cookie_path, JSON.stringify(cookies));
-    console.log("Re-run this")
+    log("Re-run this")
     await _browser.close();
     return
   }
@@ -45,11 +51,11 @@ const cookie_path = './cookie.txt';
   }
 
   await page.goto(url);
-  await page.waitFor(500)
+  await page.waitForSelector("#yourOrders");
 
   if(page.url().match(/^https:\/\/www\.amazon\.co\.jp\/ap\/signin/)) {
     fs.unlinkSync(cookie_path);
-    console.log("Re-run this")
+    log("Re-run this")
     await browser.close();
     return
   }
@@ -59,7 +65,7 @@ const cookie_path = './cookie.txt';
   // await fs.writeFileSync('page.html', html);
 
 
-  console.log("Get invoice urls")
+  log("Get invoice urls")
   have_next_page = true
   let invoice_urls = []
   let index = 10
@@ -70,29 +76,29 @@ const cookie_path = './cookie.txt';
     Array.prototype.push.apply(invoice_urls, _urls);
 
     await page.goto(url + '&startIndex=' + index)
-    await page.waitFor(500)
+    await page.waitForTimeout(500)
     index += 10
 
   }
 
-  console.log("Receive "+invoice_urls.length+" invoices rendering")
+  log("Receive "+invoice_urls.length+" invoices rendering")
   invoice_index = 1;
 
   for(const url of invoice_urls) {
     await page.goto(url).catch(() => {
-      console.log("error " + invoice_index + ".pdf")
+      log("error " + invoice_index + ".pdf")
     })
-    await page.waitFor(500)
+    await page.waitForTimeout(500)
     await page.pdf({path: 'invoice-'+invoice_index+'.pdf' , format: 'A4'});
 
     invoice_index++
     if(invoice_index % 10 == 0) {
-      console.log("Rendered " + invoice_index + " pdfs")
+      log("Rendered " + invoice_index + "/" + invoice_urls.length + " pdfs")
     }
 
 
   }
-  console.log("Rendered all pdfs")
+  log("Rendered all pdfs")
 
   await browser.close();
 })();
