@@ -35,6 +35,7 @@ function log(message) {
   if(!cookie_exist) {
 
     // 初回ログイン
+    log("First login")
     const _browser = await puppeteer.launch({headless: false});
     const _page = await _browser.newPage();
     await _page.goto(url);
@@ -43,6 +44,7 @@ function log(message) {
       await _page.waitForTimeout(500);
     }
 
+    log("Find your orders")
     await _page.waitForSelector("#yourOrders");
 
     let cookies = await _page.cookies();
@@ -52,6 +54,8 @@ function log(message) {
     return
   }
 
+  log("Cookies found")
+
   const browser = await puppeteer.launch();
   const page = await browser.newPage();
 
@@ -60,6 +64,7 @@ function log(message) {
     await page.setCookie(cookie);
   }
 
+  log("Find your orders")
   await page.goto(url);
   await page.waitForSelector("#yourOrders");
 
