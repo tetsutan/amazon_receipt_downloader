@@ -30,7 +30,9 @@ function log(message) {
   try{
     fs.statSync(cookie_path)
     cookie_exist = true
-  }catch(e){ }
+  }catch(e){
+    log(e.message)
+  }
 
   if(!cookie_exist) {
 
@@ -97,16 +99,27 @@ function log(message) {
   }
 
   log("Receive "+invoice_urls.length+" invoices rendering")
-  invoice_index = 1;
+  let invoice_index = 0;
 
   for(const url of invoice_urls) {
-    await page.goto(url).catch(() => {
-      log("error " + invoice_index + ".pdf")
+
+    // skip count
+    // if(invoice_index < 80) {
+    //   invoice_index++;
+    //   continue;
+    // }
+
+    await page.goto(url).catch(e => {
+      log("error: invoice_index = " + invoice_index)
+      log(e.message)
     })
     await page.waitForTimeout(500)
-    await page.pdf({path: 'invoice-' + year + '-' + invoice_index+'.pdf' , format: 'A4'});
+
+    let filename_index = invoice_urls.length - invoice_index
+    await page.pdf({path: 'invoice-' + year + '-' + filename_index + '.pdf' , format: 'A4'});
 
     invoice_index++
+
     if(invoice_index % 10 == 0) {
       log("Rendered " + invoice_index + "/" + invoice_urls.length + " pdfs")
     }
