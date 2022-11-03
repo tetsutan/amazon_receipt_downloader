@@ -4,15 +4,36 @@ const exec = require('child_process').exec;
 
 const puppeteer = require('puppeteer');
 
-let year = '2020';
+
+
+
+
+let first_arg = '';
 if(process.argv.length > 2) {
-  year = process.argv[2];
+  first_arg = process.argv[2];
 }
+
+let show_browser = false;
+if(first_arg == '-f') {
+  show_browser = true;
+}
+
+let year = '2020';
+const rest_index = first_arg ? 3 : 2;
+if(process.argv.length > rest_index) {
+  year = process.argv[rest_index];
+}
+
 
 if(! /^[0-9]+$/.test(year)) {
   console.log("argument error")
   return
 }
+
+const indexes = process.argv.slice(rest_index+1).map(function(s){ return parseInt(s) });
+
+log(`arguments: year = ${year}, indexes = ${indexes}`)
+
 
 const url = 'https://www.amazon.co.jp/gp/your-account/order-history?opt=ab&digitalOrders=1&unifiedOrders=1&orderFilter=year-' + year;
 
@@ -22,6 +43,13 @@ const cookie_path = './cookie.txt';
 function log(message) {
   console.log("[" + new Date().toLocaleString() + "] "+ message)
 }
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+
+
 
 (async function(){
 
@@ -58,7 +86,7 @@ function log(message) {
 
   log("Cookies found")
 
-  const browser = await puppeteer.launch();
+  const browser = await puppeteer.launch({headless: !show_browser});
   const page = await browser.newPage();
 
   let cookies = JSON.parse(fs.readFileSync(cookie_path, 'utf-8'));
@@ -103,30 +131,48 @@ function log(message) {
 
   for(const url of invoice_urls) {
 
-    // skip count
-    // if(invoice_index < 80) {
-    //   invoice_index++;
-    //   continue;
-    // }
-
-    await page.goto(url).catch(e => {
-      log("error: invoice_index = " + invoice_index)
-      log(e.message)
-    })
-    await page.waitForTimeout(500)
-
-    let filename_index = invoice_urls.length - invoice_index
-    let pad_filename_index = ( '0000' + filename_index ).slice( -4 );
-    await page.pdf({path: 'invoice-' + year + '-' + pad_filename_index + '.pdf' , format: 'A4'});
-
+    let current_index = invoice_index;
     invoice_index++
+    let filename_index = invoice_urls.length - current_index; 
+    let pad_filename_index = ( '0000' + filename_index ).slice( -4 );
 
-    if(invoice_index % 10 == 0) {
-      log("Rendered " + invoice_index + "/" + invoice_urls.length + " pdfs")
+
+
+
+    if(indexes.length == 0 || indexes.includes(current_index)) {
+      if(indexes.includes(current_index)) {
+        log(`Rendering current_index = ${current_index}`)
+      }
+
+      await page.goto(url).catch(e => {
+        log(`error: [goto error occured] current_index = ${current_index}, pad_filename_index = ${pad_filename_index}`)
+        log(e.message)
+      })
+
+      await page.waitForTimeout(500)
+      if(page.url().match(/^https:\/\/www\.amazon\.co\.jp\/ap\/signin/)) {
+        log(`error: [login-page showed] current_index = ${current_index}, pad_filename_index = ${pad_filename_index}`)
+
+        if(show_browser) {
+          log(`input password!`)
+          await sleep(20000)
+        }
+      }
+
+
+      await page.pdf({path: 'invoice-' + year + '-' + pad_filename_index + '.pdf' , format: 'A4'});
+
+      if(current_index % 10 == 0) {
+        log("Rendered " + current_index + "/" + invoice_urls.length + " pdfs")
+      }
+
+
+
     }
 
 
   }
+
   log("Rendered all pdfs")
 
   await browser.close();
