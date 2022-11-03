@@ -116,7 +116,8 @@ function log(message) {
     await page.waitForTimeout(500)
 
     let filename_index = invoice_urls.length - invoice_index
-    await page.pdf({path: 'invoice-' + year + '-' + filename_index + '.pdf' , format: 'A4'});
+    let pad_filename_index = ( '0000' + filename_index ).slice( -4 );
+    await page.pdf({path: 'invoice-' + year + '-' + pad_filename_index + '.pdf' , format: 'A4'});
 
     invoice_index++
 
