@@ -19,7 +19,7 @@ if(first_arg == '-f') {
 }
 
 let year = '2020';
-const rest_index = first_arg ? 3 : 2;
+const rest_index = show_browser ? 3 : 2;
 if(process.argv.length > rest_index) {
   year = process.argv[rest_index];
 }
