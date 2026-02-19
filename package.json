@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "dependencies": {
-    "puppeteer": "^19.2.2",
+    "puppeteer": "^19.11.1",
     "readline-sync": "^1.4.10"
   },
   "devDependencies": {},
