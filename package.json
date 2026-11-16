@@ -1,16 +1,18 @@
 {
   "name": "amazon_receipt_downloader",
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "version": "2.0.0",
+  "description": "Sort amazon.co.jp orders into company / personal and collect the company invoices as PDFs",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "receipts": "receipts.mjs"
+  },
   "dependencies": {
-    "puppeteer": "^19.2.2",
-    "readline-sync": "^1.4.10"
+    "cheerio": "^1.1.2",
+    "playwright-core": "^1.65.1"
   },
-  "devDependencies": {},
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+  "engines": {
+    "node": ">=22"
   },
-  "author": "",
   "license": "MIT"
 }

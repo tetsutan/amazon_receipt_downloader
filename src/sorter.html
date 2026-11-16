@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>Amazon 注文の仕分け</title>
+<style>
+  body { font-family: -apple-system, "Hiragino Sans", sans-serif; margin: 0; background: #f4f4f4; color: #222; }
+  header { position: sticky; top: 0; background: #fff; border-bottom: 1px solid #ddd; padding: 10px 16px; z-index: 1;
+           display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+  header h1 { font-size: 16px; margin: 0; }
+  .summary span { margin-right: 12px; font-size: 13px; }
+  .help { font-size: 12px; color: #666; }
+  #error { color: #fff; background: #c00; padding: 4px 10px; display: none; }
+  main { padding: 12px 16px; max-width: 1100px; }
+  h2.group { font-size: 14px; margin: 24px 0 8px; padding-top: 10px; border-top: 2px solid #999; color: #555; }
+  .order { background: #fff; border: 2px solid transparent; border-radius: 6px; padding: 10px 12px; margin-bottom: 10px; }
+  .order.zero { opacity: .6; }
+  .order.current { border-color: #f0a000; opacity: 1; }
+  .order.company { background: #eef6ff; }
+  .order.personal { background: #f3f3f3; }
+  .meta { display: flex; gap: 14px; font-size: 13px; align-items: baseline; flex-wrap: wrap; }
+  .meta .total { font-weight: bold; font-size: 15px; }
+  .meta .kind { font-size: 11px; padding: 1px 6px; border-radius: 8px; background: #ddd; }
+  .meta a { color: #06c; }
+  .items { display: flex; gap: 10px; overflow-x: auto; padding: 8px 0 4px; }
+  .item { flex: 0 0 120px; font-size: 11px; line-height: 1.3; }
+  .item img { width: 120px; height: 120px; object-fit: contain; background: #fff; border: 1px solid #eee; display: block; }
+  .item .title { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; margin-top: 3px; }
+  .item .qty { font-weight: bold; color: #c60; }
+  .buttons { display: flex; gap: 8px; margin-top: 6px; }
+  .buttons button { font-size: 13px; padding: 4px 14px; border: 1px solid #aaa; border-radius: 4px; background: #fff; cursor: pointer; }
+  .buttons button.on.company { background: #06c; color: #fff; border-color: #06c; }
+  .buttons button.on.personal { background: #666; color: #fff; border-color: #666; }
+</style>
+</head>
+<body>
+<header>
+  <h1 id="title">仕分け</h1>
+  <div class="summary" id="summary"></div>
+  <label><input type="checkbox" id="onlyUnsorted"> 未分類だけ表示</label>
+  <div class="help">j / k: 次 / 前　c, h: 会社　p, l: 個人　u: 未分類に戻す</div>
+  <div id="error"></div>
+</header>
+<main id="list"></main>
+<script>
+let data, cur = 0;
+const $ = (s) => document.querySelector(s);
+const yen = (s) => Number(String(s ?? '').replace(/[^\d]/g, '')) || 0;
+const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+// 合計 ￥0 の注文 (ポイントやギフト券で全額払った注文、無料アプリなど) は、一覧のいちばん下にまとめる。
+function visible() {
+  const only = $('#onlyUnsorted').checked;
+  const list = data.orders.filter((o) => !only || !data.classification[o.orderId]);
+  return [...list.filter((o) => yen(o.total) > 0), ...list.filter((o) => yen(o.total) === 0)];
+}
+
+function render() {
+  const cls = data.classification;
+  const orders = visible();
+  cur = Math.min(cur, Math.max(orders.length - 1, 0));
+  let company = 0, personal = 0, companyYen = 0;
+  for (const o of data.orders) {
+    const v = cls[o.orderId]?.value;
+    if (v === 'company') { company++; companyYen += yen(o.total); }
+    if (v === 'personal') personal++;
+  }
+  $('#title').textContent = `${data.period.from} 〜 ${data.period.to} の注文の仕分け`;
+  $('#summary').innerHTML =
+    `<span>全 ${data.orders.length} 件</span><span>会社 ${company} 件 (￥${companyYen.toLocaleString()})</span>` +
+    `<span>個人 ${personal} 件</span><span>未分類 ${data.orders.length - company - personal} 件</span>` +
+    (data.cancelled ? `<span>表示していないキャンセル済み ${data.cancelled} 件</span>` : '');
+  const firstZero = orders.findIndex((o) => yen(o.total) === 0);
+  $('#list').innerHTML = orders.map((o, i) => {
+    const v = cls[o.orderId]?.value ?? '';
+    const heading = i === firstZero ? `<h2 class="group">合計 ￥0 の注文 (${orders.filter((x) => yen(x.total) === 0).length} 件)</h2>` : '';
+    const items = o.items.map((it) => `
+      <div class="item">
+        <img src="${esc(it.image)}" loading="lazy" referrerpolicy="no-referrer" alt="">
+        <div class="title">${it.qty ? `<span class="qty">×${it.qty}</span> ` : ''}${esc(it.title)}</div>
+      </div>`).join('');
+    return `${heading}
+    <section class="order ${v} ${yen(o.total) === 0 ? 'zero' : ''} ${i === cur ? 'current' : ''}" data-i="${i}">
+      <div class="meta">
+        <span class="total">${esc(o.total)}</span>
+        <span>${esc(o.date)}${o.dateLabel === '注文日' ? '' : ' (' + esc(o.dateLabel) + ')'}</span>
+        <span class="kind">${o.kind === 'digital' ? 'デジタル' : '通常'}</span>
+        <span>${esc(o.orderId)}</span>
+        <span>${esc(o.status ?? '')}</span>
+        <span>商品 ${o.items.length} 点</span>
+        <a href="${esc(o.detailsUrl)}" target="_blank" rel="noreferrer">注文内容 (Amazon)</a>
+      </div>
+      <div class="items">${items}</div>
+      <div class="buttons">
+        <button class="company ${v === 'company' ? 'on' : ''}" data-v="company">会社</button>
+        <button class="personal ${v === 'personal' ? 'on' : ''}" data-v="personal">個人</button>
+      </div>
+    </section>`;
+  }).join('');
+}
+
+function showError(m) {
+  $('#error').textContent = m;
+  $('#error').style.display = m ? 'block' : 'none';
+}
+
+async function classify(i, value) {
+  const o = visible()[i];
+  if (!o) return;
+  // 保存できたことを確かめてから画面を変える。サーバーが止まっていると、画面だけ済みに見えてしまうため。
+  const res = await fetch('/api/classify', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ orderId: o.orderId, value }),
+  }).catch((e) => ({ ok: false, statusText: e.message }));
+  if (!res.ok) { showError(`保存できなかった (${res.status ?? ''} ${res.statusText})。サーバーが動いているか確かめてください`); return; }
+  showError('');
+  if (value === null) delete data.classification[o.orderId];
+  else data.classification[o.orderId] = { value };
+  if (!$('#onlyUnsorted').checked && value !== null) cur = Math.min(cur + 1, visible().length - 1);
+  render();
+  scrollToCurrent();
+}
+
+function scrollToCurrent() {
+  document.querySelector('.order.current')?.scrollIntoView({ block: 'center' });
+}
+
+document.addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-v]');
+  const sec = e.target.closest('.order');
+  if (!sec) return;
+  cur = Number(sec.dataset.i);
+  if (b) classify(cur, b.dataset.v); else render();
+});
+document.addEventListener('keydown', (e) => {
+  if (e.target.tagName === 'INPUT') return;
+  const n = visible().length;
+  if (e.key === 'j') { cur = Math.min(cur + 1, n - 1); render(); scrollToCurrent(); }
+  if (e.key === 'k') { cur = Math.max(cur - 1, 0); render(); scrollToCurrent(); }
+  if (e.key === 'c' || e.key === 'h') classify(cur, 'company');
+  if (e.key === 'p' || e.key === 'l') classify(cur, 'personal');
+  if (e.key === 'u') classify(cur, null);
+});
+$('#onlyUnsorted').addEventListener('change', () => { cur = 0; render(); });
+
+fetch('/api/data').then((r) => r.json()).then((d) => { data = d; render(); });
+</script>
+</body>
+</html>

@@ -1,2 +1,5 @@
-cookie.txt
 /node_modules
+/tmp
+/sample/node_modules
+# 取得した注文・書類 (購入品・氏名・住所が入る)
+/data
