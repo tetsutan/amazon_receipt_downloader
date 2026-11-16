@@ -15,12 +15,12 @@ npm install
 ## 使い方
 
 ```sh
-node receipts.mjs login              # 専用の Chrome を起動する。初回は開いた窓で amazon.co.jp にログインする
+node receipts.mjs login              # 専用の Chrome を起動し、ログイン済みかを確かめる。未ログインなら開いた窓でログインしてやり直す
 node receipts.mjs orders 2026        # 2025 年と 2026 年の注文一覧を取得する
 node receipts.mjs sort 2026          # 仕分け画面 http://127.0.0.1:8787/ を開く (Ctrl-C で止める)
 node receipts.mjs fetch 2026         # 会社の注文の書類 PDF を取得する
 node receipts.mjs status 2026        # 会社の注文の書類の状況を表示する
-node receipts.mjs export 2026 ~/Desktop/receipts   # ~/Desktop/receipts/2025-11-01_2026-10-31/ に PDF を置く
+node receipts.mjs export 2026                      # out/2025-11-01_2026-10-31/ に PDF を置く (出力先は out/ に固定)
 ```
 
 - 仕分け画面は `http://127.0.0.1:8787/` で開く (`localhost` では開けない)。キー: `h` / `c` 会社、`l` / `p` 個人、`u` 未分類に戻す、`j` / `k` 次 / 前。合計 ￥0 の注文 (ポイントやギフト券で全額払ったもの、無料アプリなど) は一覧のいちばん下にまとめて出る

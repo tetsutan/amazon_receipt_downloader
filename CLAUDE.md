@@ -15,7 +15,7 @@ amazon.co.jp の注文を会社 / 個人に仕分け、会社の分の書類 PDF
 - `src/sort-server.mjs` + `src/sorter.html`: 仕分け画面
 - `src/fetch-docs.mjs`: 会社の注文の「領収書等」を開き、PDF のリンクをクリックしてダウンロードする
 - `src/statements.mjs`: `pdftotext` で PDF を全ページ読み、明細書ごとに適格請求書かを判定する
-- `src/status.mjs` / `src/export.mjs`: 状況の表示と、税理士用フォルダの作成
+- `src/status.mjs` / `src/export.mjs`: 状況の表示と、税理士用フォルダ (`out/<期間>/`、`.gitignore` 済み) の作成
 - データは `data/` (`.gitignore` 済み)。注文単位で `data/docs/<注文番号>/` に書類と `meta.json` を置く。期 (11 月始まり) は注文日で絞る
 
 ## 注意

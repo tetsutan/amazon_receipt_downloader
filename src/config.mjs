@@ -5,6 +5,7 @@ export const ROOT = path.resolve(import.meta.dirname, '..');
 export const DATA = path.join(ROOT, 'data');
 export const LISTS = path.join(DATA, 'lists'); // lists/<暦年>/page-NN.html
 export const DOCS = path.join(DATA, 'docs'); // docs/<注文番号>/
+export const OUT = path.join(ROOT, 'out'); // out/<期間>/ 税理士に渡すフォルダ
 export const ORDERS_JSON = path.join(DATA, 'orders.json');
 export const CLASS_JSON = path.join(DATA, 'classification.json');
 export const BLOCKED_JSON = path.join(DATA, 'blocked.json');

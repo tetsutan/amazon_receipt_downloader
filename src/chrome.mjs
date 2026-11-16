@@ -47,7 +47,7 @@ export async function login() {
       throw new Fatal('専用の Chrome が起動中で、「PDF をダウンロードする」の設定を書けない。専用の Chrome を閉じてから login をやり直してください');
     }
     log(`専用の Chrome はもう起動している (${CDP_URL})`);
-    return;
+    return checkSignedIn();
   }
   fs.mkdirSync(PROFILE, { recursive: true });
   log(`専用プロファイル: ${PROFILE}`);
@@ -65,9 +65,36 @@ export async function login() {
   ]);
   for (let i = 0; i < 30 && !(await isRunning()); i++) await sleep(500);
   if (!(await isRunning())) throw new Fatal('専用の Chrome の起動を確かめられなかった');
-  log('開いた Chrome の窓で amazon.co.jp にログインしてください (1Password のパスキーを使えます)');
-  log('ログインの状態はプロファイルに残るので、次回からは起動するだけで使えます');
+  return checkSignedIn();
 }
+
+// 開いている amazon.co.jp のタブのヘッダー (「こんにちは, ○○さん」/「こんにちは, ログイン」) でログイン済みかを確かめる。
+// 名前は表示しない。amazon.co.jp のタブが無ければトップページを 1 回だけ開く。
+async function checkSignedIn() {
+  const { browser, context } = await connect();
+  let opened = null;
+  try {
+    let page = context.pages().find((p) => /^https:\/\/www\.amazon\.co\.jp\//.test(p.url()));
+    if (!page) {
+      opened = page = await context.newPage();
+      await page.goto('https://www.amazon.co.jp/', { waitUntil: 'domcontentloaded' });
+    }
+    if (isSigninUrl(page.url())) throw notSignedIn();
+    const line = await page
+      .locator('#nav-link-accountList-nav-line-1')
+      .textContent({ timeout: 15000 })
+      .catch(() => null);
+    if (line === null) throw new Fatal(`ログインしているかを確かめられなかった (ヘッダーのアカウント欄が見つからない: ${page.url()})`);
+    if (line.includes('ログイン')) throw notSignedIn();
+    log('amazon.co.jp にログイン済み');
+  } finally {
+    if (opened) await opened.close();
+    await browser.close();
+  }
+}
+
+const notSignedIn = () =>
+  new Fatal('amazon.co.jp にログインしていない。開いた Chrome の窓でログインしてから (1Password のパスキーを使えます)、login をやり直してください', 3);
 
 // ポート 9222 で動いているのが専用プロファイルの Chrome かを、プロセスの起動引数で確かめる。
 // 別の Chrome がこのポートを使っていると、そちらのアカウントを操作してしまうため。

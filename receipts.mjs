@@ -11,13 +11,13 @@ import { showStatus } from './src/status.mjs';
 import { Fatal } from './src/util.mjs';
 
 const USAGE = `使い方: node receipts.mjs <コマンド> [引数]
-  login                      専用の Chrome を起動する (初回はここで amazon.co.jp にログインする)
+  login                      専用の Chrome を起動し、amazon.co.jp にログイン済みかを確かめる
   orders <期>                期にかかる 2 年分の注文一覧を取得する
   sort <期>                  仕分け画面 (http://127.0.0.1:8787/) を開く
   fetch <期> [--force] [--refetch <注文番号>...]
                              会社の注文の書類 PDF を取得する
   status <期>                会社の注文の書類の状況を表示する
-  export <期> <出力先>        <出力先>/<期間>/ に書類 PDF を置く
+  export <期>                out/<期間>/ に書類 PDF を置く
 期は終わりの年で書く (2026 → 2025-11-01〜2026-10-31)`;
 
 async function main(argv) {
@@ -39,7 +39,7 @@ async function main(argv) {
       if (showStatus(period(arg)) > 0) process.exitCode = 1;
       return;
     case 'export':
-      return exportDocs(period(arg), rest[0]);
+      return exportDocs(period(arg));
     default:
       console.log(USAGE);
       if (cmd) process.exitCode = 2;
