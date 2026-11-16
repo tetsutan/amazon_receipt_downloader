@@ -4,12 +4,14 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { SORT_PORT } from './config.mjs';
 import { ordersIn, isCancelled, readClassification, setClassification } from './store.mjs';
-import { log } from './util.mjs';
+import { Fatal, log } from './util.mjs';
 
 const HTML = path.join(import.meta.dirname, 'sorter.html');
 
 export function serveSorter(p, port = SORT_PORT) {
   const origin = `http://127.0.0.1:${port}`;
+  // 一覧が無ければ、起動の時点で分かるメッセージで止める (要求の処理中に落ちないように)。
+  const count = ordersIn(p).length;
   const send = (res, status, type, body) => {
     res.writeHead(status, { 'content-type': type });
     res.end(body);
@@ -19,7 +21,12 @@ export function serveSorter(p, port = SORT_PORT) {
     if (req.headers.host !== `127.0.0.1:${port}`) return send(res, 403, 'text/plain', 'bad host');
     if (req.method === 'GET' && req.url === '/') return send(res, 200, 'text/html; charset=utf-8', fs.readFileSync(HTML));
     if (req.method === 'GET' && req.url === '/api/data') {
-      const orders = ordersIn(p);
+      let orders;
+      try {
+        orders = ordersIn(p);
+      } catch (e) {
+        return send(res, 500, 'text/plain', e.message);
+      }
       return send(
         res,
         200,
@@ -51,8 +58,13 @@ export function serveSorter(p, port = SORT_PORT) {
     }
     send(res, 404, 'text/plain', 'not found');
   });
-  server.listen(port, '127.0.0.1', () => {
-    log(`仕分け画面: ${origin}/  (${p.from} 〜 ${p.to})`);
-    log('ブラウザで開いて仕分けてください。終わったら Ctrl-C で止めます');
+  return new Promise((resolve, reject) => {
+    server.on('error', (e) =>
+      reject(e.code === 'EADDRINUSE' ? new Fatal(`ポート ${port} が使用中で、仕分け画面を起動できない。前回の sort が動いたままになっていないか確かめてください`, 2) : e),
+    );
+    server.listen(port, '127.0.0.1', () => {
+      log(`仕分け画面: ${origin}/  (${p.from} 〜 ${p.to}、注文 ${count} 件)`);
+      log('ブラウザで開いて仕分けてください (localhost ではなく 127.0.0.1 で開く)。終わったら Ctrl-C で止めます');
+    });
   });
 }

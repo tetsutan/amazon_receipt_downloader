@@ -33,7 +33,7 @@ async function main(argv) {
       return serveSorter(period(arg));
     case 'fetch': {
       const i = rest.indexOf('--refetch');
-      return fetchDocs(period(arg), { force: rest.includes('--force'), refetch: i >= 0 ? rest.slice(i + 1) : [] });
+      return fetchDocs(period(arg), { force: rest.includes('--force'), refetch: i >= 0 ? rest.slice(i + 1).filter((a) => !a.startsWith('--')) : [] });
     }
     case 'status':
       if (showStatus(period(arg)) > 0) process.exitCode = 1;

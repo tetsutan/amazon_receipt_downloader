@@ -25,11 +25,14 @@ const countYears = (page, year) =>
       else if (found === y) match++;
     }
     const pagination = document.querySelector('ul.a-pagination');
+    // 注文履歴のページであることの印 (年の絞り込みの選択欄)。注文が 0 件の年でもこれはある。
+    const isOrderHistory = !!document.querySelector('[name="timeFilter"]');
     const last = pagination?.querySelector('li.a-last');
     return {
       cards: cards.length,
       match,
       noDate,
+      isOrderHistory,
       hasPagination: !!pagination,
       // 最後のページには「次へ」(li.a-last) そのものが無い (2023 年の実データで確認)。
       isLast: !last || last.classList.contains('a-disabled'),
@@ -39,8 +42,8 @@ const countYears = (page, year) =>
   }, year);
 
 async function fetchYear(page, year) {
-  const dir = path.join(LISTS, year);
-  // 前回の取得で保存したページが残っていると、件数が減ったときに古いページを読んでしまうので、先に消す。
+  // 一時フォルダに取得し、最後のページまで終えてから入れ替える。途中で止まっても前回の一覧が残るように。
+  const dir = path.join(LISTS, `.${year}.partial`);
   fs.rmSync(dir, { recursive: true, force: true });
   fs.mkdirSync(dir, { recursive: true });
   let url = listUrl(year);
@@ -54,6 +57,10 @@ async function fetchYear(page, year) {
     const r = await countYears(page, year);
     if (r.cards !== r.match) {
       throw new Fatal(`${year} 年の ${n} ページ目: 注文 ${r.cards} 件のうち ${r.cards - r.match} 件が ${year} 年と確かめられない (日付が読めない ${r.noDate} 件)。保存せずに止める`);
+    }
+    // 注文が 0 件のページは、エラーページや確認ページの可能性がある。注文が 1 件も無い年の 1 ページ目だけを認める。
+    if (r.cards === 0 && (n > 1 || !r.isOrderHistory)) {
+      throw new Fatal(`${year} 年の ${n} ページ目: 注文が 1 件も無く、注文履歴のページか確かめられない (${page.url()})`);
     }
     if (r.cards > 0) {
       writeFileAtomic(path.join(dir, `page-${String(n).padStart(2, '0')}.html`), await page.content());
@@ -73,8 +80,36 @@ async function fetchYear(page, year) {
     url = new URL(r.nextHref, BASE).toString();
     await sleepBetween([1500, 3000]);
   }
+  fs.writeFileSync(path.join(dir, FETCHED_AT), `${new Date().toISOString()}\n`);
+  const final = path.join(LISTS, year);
+  fs.rmSync(final, { recursive: true, force: true });
+  fs.renameSync(dir, final);
   log(`${year} 年: 合計 ${total} 件`);
   return total;
+}
+
+const FETCHED_AT = 'fetched-at.txt';
+
+// その年の一覧を取得した時刻。記録が無い (サンプルから移した) ときは、保存したページの最も古い更新時刻を使う。
+export function listFetchedAt(year) {
+  const dir = path.join(LISTS, year);
+  const f = path.join(dir, FETCHED_AT);
+  if (fs.existsSync(f)) return new Date(fs.readFileSync(f, 'utf8').trim());
+  if (!fs.existsSync(dir)) return null;
+  const times = fs.readdirSync(dir).map((n) => fs.statSync(path.join(dir, n)).mtimeMs);
+  return times.length ? new Date(Math.min(...times)) : null;
+}
+
+// 期の終わりより前に取った一覧のままだと、その後の注文が抜ける。fetch と export の前に確かめる。
+export function assertListsComplete(p) {
+  for (const year of p.years) {
+    const at = listFetchedAt(year);
+    if (!at) throw new Fatal(`${year} 年の注文一覧が無い。先に orders ${p.name} を実行してください`, 2);
+    const endOfPeriod = new Date(`${p.to}T23:59:59+09:00`);
+    if (year === p.years[1] && at <= endOfPeriod) {
+      throw new Fatal(`${year} 年の注文一覧は ${at.toLocaleString('ja-JP')} に取ったもので、期の終わり (${p.to}) より前。orders ${p.name} を実行し直してください`, 2);
+    }
+  }
 }
 
 export async function fetchLists(p) {
@@ -136,7 +171,12 @@ function parseCard($, card) {
     date: m ? `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}` : null,
     dateLabel,
     total: header['合計'] ?? null,
-    status: clean(card.find('.yohtmlc-shipment-status-primaryText').first().text()) || null,
+    // 配達の状態 (「11月14日にお届け済み」「返品完了」など)。複数の発送に分かれた注文は、最初の発送の状態。
+    status:
+      clean(card.find('.delivery-box__primary-text').first().text()) ||
+      clean(card.find('.yohtmlc-shipment-status-primaryText').first().text()) ||
+      null,
+    shipments: card.find('.delivery-box__primary-text').length,
     detailsUrl: link('注文内容を表示'),
     invoicePopoverUrl: link('領収書等'),
     items,
@@ -150,7 +190,12 @@ export function parseLists(years) {
     const dir = path.join(LISTS, year);
     if (!fs.existsSync(dir)) throw new Fatal(`${year} 年の注文一覧が無い。先に orders を実行してください`);
     const found = {};
-    for (const f of fs.readdirSync(dir).filter((f) => /^page-\d+\.html$/.test(f)).sort()) {
+    const pages = fs.readdirSync(dir).filter((f) => /^page-\d+\.html$/.test(f)).sort();
+    // ページの番号が 1 から欠けずに並んでいることを確かめる (途中までしか無い一覧で注文を消さないため)。
+    pages.forEach((f, i) => {
+      if (f !== `page-${String(i + 1).padStart(2, '0')}.html`) throw new Fatal(`${year} 年の注文一覧のページが欠けている (${f})。orders を実行し直してください`);
+    });
+    for (const f of pages) {
       const $ = load(fs.readFileSync(path.join(dir, f), 'utf8'));
       $('.order-card.js-order-card').each((_, el) => {
         const o = parseCard($, $(el));

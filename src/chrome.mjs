@@ -42,8 +42,8 @@ function setPdfDownloadPref() {
 
 export async function login() {
   if (await isRunning()) {
-    const prefs = readJson(PREFS, {});
-    if (prefs.plugins?.always_open_pdf_externally !== true) {
+    assertDedicatedChrome();
+    if (!pdfDownloadPrefIsSet()) {
       throw new Fatal('専用の Chrome が起動中で、「PDF をダウンロードする」の設定を書けない。専用の Chrome を閉じてから login をやり直してください');
     }
     log(`専用の Chrome はもう起動している (${CDP_URL})`);
@@ -69,8 +69,19 @@ export async function login() {
   log('ログインの状態はプロファイルに残るので、次回からは起動するだけで使えます');
 }
 
+// ポート 9222 で動いているのが専用プロファイルの Chrome かを、プロセスの起動引数で確かめる。
+// 別の Chrome がこのポートを使っていると、そちらのアカウントを操作してしまうため。
+function assertDedicatedChrome() {
+  const lines = execFileSync('ps', ['-ax', '-o', 'command'], { encoding: 'utf8' }).split('\n');
+  const ok = lines.some((l) => l.includes(`--remote-debugging-port=${CDP_PORT}`) && l.includes(`--user-data-dir=${PROFILE}`) && !l.includes('--type='));
+  if (!ok) throw new Fatal(`ポート ${CDP_PORT} で動いているのが専用プロファイルの Chrome と確かめられない。専用の Chrome 以外を閉じてから login を実行してください`);
+}
+
+export const pdfDownloadPrefIsSet = () => readJson(PREFS, {}).plugins?.always_open_pdf_externally === true;
+
 export async function connect() {
   if (!(await isRunning())) throw new Fatal('専用の Chrome が起動していない。先に `node receipts.mjs login` を実行してください');
+  assertDedicatedChrome();
   const browser = await chromium.connectOverCDP(CDP_URL);
   const context = browser.contexts()[0];
   return { browser, context };

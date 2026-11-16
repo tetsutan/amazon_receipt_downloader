@@ -104,9 +104,20 @@ function showError(m) {
   $('#error').style.display = m ? 'block' : 'none';
 }
 
+let saving = false;
 async function classify(i, value) {
   const o = visible()[i];
-  if (!o) return;
+  // 保存の応答が返るまで次の選択を受け付けない (同じ注文に 2 回当たり、次の注文を飛ばさないように)。
+  if (!o || saving) return;
+  saving = true;
+  try {
+    await save(o, value);
+  } finally {
+    saving = false;
+  }
+}
+
+async function save(o, value) {
   // 保存できたことを確かめてから画面を変える。サーバーが止まっていると、画面だけ済みに見えてしまうため。
   const res = await fetch('/api/classify', {
     method: 'POST',
