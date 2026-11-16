@@ -4,7 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 概要
 
-amazon.co.jp の注文を会社 / 個人に仕分け、会社の分の書類 PDF を税理士用のフォルダにまとめる個人用ツール。入口は `receipts.mjs`、処理は `src/`。使い方は `README.md`、設計の経緯と実データで確かめた Amazon の挙動は `docs/design.md`。ビルド・lint・テストは無い。
+amazon.co.jp の注文を会社 / 個人に仕分け、会社の分の書類 PDF を税理士用のフォルダにまとめる個人用ツール。`node receipts.mjs <コマンド>` で実行し、処理は `src/` にある。使い方は `README.md`、設計の経緯と実データで確かめた Amazon の挙動は `docs/design.md`。ビルド・lint・テストは無い。
+
+**矢野氏に「今期の領収書」などの実行を頼まれたら、スキル `amazon-receipts` (`.claude/skills/amazon-receipts/SKILL.md`) の手順で進める。** 専用 Chrome の起動、仕分け画面のサーバーの起動と停止、終了コードごとの対処が書いてある。
 
 ## 構成
 
